@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Stripe\Stripe;
 use Stripe\Checkout\Session;
-use Stripe\HttpClient\CurlClient; // <--- 1. Importar CurlClient
-use Stripe\ApiRequestor;          // <--- 2. Importar ApiRequestor
+use Stripe\HttpClient\CurlClient; 
+use Stripe\ApiRequestor;         
 use OpenApi\Attributes as OA;
+use App\Models\Order;
+use App\Models\OrderItem;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
@@ -45,50 +48,84 @@ class PaymentController extends Controller
         description: "Error interno de Stripe"
     )]
     public function createCheckoutSession(Request $request)
-    {
-        $request->validate([
-            'amount' => 'required|numeric|min:0.50',
-            'product_name' => 'required|string|max:255',
+{
+    $request->validate([
+        'items' => 'required|array|min:1',
+        'items.*.id' => 'required|exists:products,id',
+        'items.*.quantity' => 'required|integer|min:1',
+        'items.*.price' => 'required|numeric|min:0',
+        'items.*.name' => 'required|string',
+    ]);
+
+    try {
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        $curlClient = new CurlClient([
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+        ]);
+        ApiRequestor::setHttpClient($curlClient);
+
+        // Mapear los ítems para Stripe y calcular el total general
+        $lineItems = [];
+        $totalOrder = 0;
+
+        foreach ($request->items as $item) {
+            $subtotal = $item['price'] * $item['quantity'];
+            $totalOrder += $subtotal;
+
+            $lineItems[] = [
+                'price_data' => [
+                    'currency' => 'usd',
+                    'product_data' => [
+                        'name' => $item['name'],
+                    ],
+                    'unit_amount' => intval($item['price'] * 100),
+                ],
+                'quantity' => $item['quantity'],
+            ];
+        }
+
+        $session = Session::create([
+            'payment_method_types' => ['card'],
+            'line_items' => $lineItems,
+            'mode' => 'payment',
+            'success_url' => 'http://localhost:3000/orders?session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => 'http://localhost:3000/cart',
         ]);
 
-        try {
-            Stripe::setApiKey(config('services.stripe.secret'));
+        $user = $request->user();
 
-            // <--- 3. Desactivar la verificación SSL solo para entorno de desarrollo local
-            $curlClient = new CurlClient([
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => 0,
-            ]);
-            ApiRequestor::setHttpClient($curlClient);
-
-            $session = Session::create([
-                'payment_method_types' => ['card'],
-                'line_items' => [[
-                    'price_data' => [
-                        'currency' => 'usd',
-                        'product_data' => [
-                            'name' => $request->product_name,
-                        ],
-                        'unit_amount' => intval($request->amount * 100),
-                    ],
-                    'quantity' => 1,
-                ]],
-                'mode' => 'payment',
-                'success_url' => url('/api/payment/success?session_id={CHECKOUT_SESSION_ID}'),
-                'cancel_url' => url('/api/payment/cancel'),
+        // Registrar la orden y todos sus ítems en la base de datos
+        DB::transaction(function () use ($user, $request, $session, $totalOrder) {
+            $order = Order::create([
+                'user_id' => $user->id,
+                'total' => $totalOrder,
+                'status' => 'pending', // Cambiará a pagado con el webhook
+                'stripe_payment_intent_id' => $session->payment_intent ?? null,
             ]);
 
-            return response()->json([
-                'status' => 'success',
-                'session_url' => $session->url,
-                'session_id' => $session->id
-            ], 200);
+            foreach ($request->items as $item) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['id'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                ]);
+            }
+        });
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'status' => 'success',
+            'session_url' => $session->url,
+            'session_id' => $session->id
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 }

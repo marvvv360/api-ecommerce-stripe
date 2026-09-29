@@ -29,6 +29,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Órdenes y Compras
     Route::get('orders', [OrderController::class, 'index']);
+    Route::get('user/orders', [OrderController::class, 'index']);
     Route::post('orders', [OrderController::class, 'store']);
 
     // Pagos
