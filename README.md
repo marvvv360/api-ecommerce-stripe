@@ -2,12 +2,14 @@
 
 API RESTful desarrollada en Laravel 12 para la gestión de un catálogo de productos, procesamiento de pagos con Stripe y control de órdenes de compra, utilizando autenticación basada en tokens con JWT y documentación interactiva mediante Swagger UI.
 
+> **Nota de Arquitectura:** Este repositorio funciona de la mano con el cliente oficial [frontend-ecommerce](https://github.com/marvvv360/frontend-ecommerce.git) desarrollado en Next.js, encargándose de proveer toda la lógica de negocio, autenticación segura, pasarela de pago y persistencia de datos.
+
 ## Características
 
 - Autenticación JWT: Registro, inicio de sesión, perfil de usuario, renovación de tokens y cierre de sesión seguro (blacklist).
 - Gestión de Catálogo (Productos): Creación, lectura, actualización y eliminación de productos con control de stock y precios.
-- Pasarela de Pagos (Stripe): Integración con Stripe PaymentIntents para procesar cobros de forma segura con tarjetas de prueba.
-- Control de Órdenes: Lógica para calcular totales basados en la base de datos, asociar ítems (OrderItems) y registrar transacciones de pago.
+- Pasarela de Pagos (Stripe): Integración con Stripe para procesar cobros de forma segura.
+- Control de Órdenes y Multi-Producto: Lógica robusta en el controlador de pagos para validar y registrar arreglos de ítems (`id`, `quantity`, `price`, `name`), asociando los productos adquiridos por cada usuario.
 - Documentación Interactiva: Endpoints documentados y accesibles mediante Swagger UI.
 
 ---
@@ -60,7 +62,7 @@ API RESTful desarrollada en Laravel 12 para la gestión de un catálogo de produ
 
 ## Documentación de Endpoints y Ejemplos de Verificación
 
-A continuación se detallan las peticiones principales para verificar el funcionamiento de la API desde Postman, Thunder Client o Swagger UI.
+A continuación se detallan las peticiones principales para verificar el funcionamiento de la API desde Postman, Thunder Client, Swagger UI o el cliente Next.js.
 
 ### 1. Autenticación
 
@@ -157,28 +159,31 @@ A continuación se detallan las peticiones principales para verificar el funcion
 
 ---
 
-### 3. Gestión de Órdenes y Pagos con Stripe (/api/orders)
+### 3. Gestión de Órdenes y Pagos con Stripe (/api/payment/create-session u órdenes)
 
-#### Crear Orden y Procesar Pago
+#### Procesar Pago y Crear Orden Multi-Producto
 - Método: POST
-- URL: http://127.0.0.1:8000/api/orders
+- URL: http://127.0.0.1:8000/api/payment/create-session (o tu endpoint correspondiente)
 - Headers: Authorization: Bearer <TU_TOKEN_JWT>, Content-Type: application/json
 - Body (JSON):
   {
     "items": [
       {
-        "product_id": 1,
-        "quantity": 2
+        "id": 1,
+        "quantity": 2,
+        "price": 25.99,
+        "name": "Camiseta Deportiva"
       }
     ],
-    "payment_method_id": "pm_card_visa"
+    "amount": 51.98,
+    "product_name": "Compra de 2 productos en E-Commerce"
   }
-- Respuesta esperada (201 Created):
-  Procesa el pago mediante Stripe PaymentIntent, guarda los ítems en la tabla `order_items` y retorna el comprobante de la orden completada.
+- Respuesta esperada (201 / 200 OK):
+  Procesa la sesión de pago con Stripe y registra la orden junto con sus ítems asociados de forma persistente en la base de datos.
 
-#### Listar Órdenes del Usuario Autenticado
+#### Listar Órdenes del Usuario Autenticado (Historial)
 - Método: GET
 - URL: http://127.0.0.1:8000/api/orders
 - Headers: Authorization: Bearer <TU_TOKEN_JWT>
 - Respuesta esperada (200 OK):
-  Listado de las órdenes junto con sus respectivos ítems y productos asociados pertenecientes al usuario autenticado.
+  Listado completo de las órdenes históricas asociadas al usuario autenticado, desglosando los productos y estados de cada transacción.
