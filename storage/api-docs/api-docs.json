@@ -270,7 +270,7 @@
                         "description": "No autorizado - Token ausente o inválido"
                     },
                     "422": {
-                        "description": "Error de validación"
+                        "description": "Error de validation"
                     },
                     "500": {
                         "description": "Error interno de Stripe"

@@ -129,3 +129,26 @@ class PaymentController extends Controller
     }
 }
 }
+
+/**
+ * @OA\Post(
+ *     path="/api/payment/create-session",
+ *     summary="Crear una sesión de pago en Stripe",
+ *     tags={"Pagos"},
+ *     security={{"bearerAuth":{}}},
+ *     @OA\RequestBody(
+ *         required=true,
+ *         @OA\JsonContent(
+ *             required={"amount","product_name"},
+ *             @OA\Property(property="amount", type="number", example=25.5),
+ *             @OA\Property(property="product_name", type="string", example="Suscripción Premium")
+ *         )
+ *     ),
+ *     @OA\Response(
+ *         response=200,
+ *         description="Sesión creada exitosamente",
+ *         @OA\JsonContent()
+ *     ),
+ *     @OA\Response(response=401, description="No autorizado")
+ * )
+ */

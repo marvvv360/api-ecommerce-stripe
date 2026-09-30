@@ -98,8 +98,10 @@ class ProductController extends Controller
         response: 404,
         description: "Producto no encontrado"
     )]
-    public function show(int $id)
+    public function show($id)
     {
+        $id = (int) $id;
+
         $product = Product::find($id);
 
         if (!$product) {
@@ -133,8 +135,10 @@ class ProductController extends Controller
         response: 422,
         description: "Error de validación"
     )]
-    public function update(Request $request, int $id)
-    {
+    public function update(Request $request, $id)
+   {
+    $id = (int) $id;
+
         $product = Product::find($id);
 
         if (!$product) {
@@ -182,8 +186,10 @@ class ProductController extends Controller
         response: 404,
         description: "Producto no encontrado"
     )]
-    public function destroy(int $id)
+    public function destroy($id)
     {
+    $id = (int) $id;
+    
         $product = Product::find($id);
 
         if (!$product) {
@@ -201,3 +207,26 @@ class ProductController extends Controller
         ], 200);
     }
 }
+
+/**
+ * @OA\Delete(
+ *     path="/api/products/{id}",
+ *     summary="Eliminar un producto",
+ *     tags={"Productos"},
+ *     security={{"bearerAuth":{}}},
+ *     @OA\Parameter(
+ *         name="id",
+ *         in="path",
+ *         required=true,
+ *         description="ID del producto a eliminar",
+ *         @OA\Schema(type="integer", example=1)
+ *     ),
+ *     @OA\Response(
+ *         response=200,
+ *         description="Producto eliminado exitosamente",
+ *         @OA\JsonContent()
+ *     ),
+ *     @OA\Response(response=404, description="Producto no encontrado"),
+ *     @OA\Response(response=401, description="No autorizado")
+ * )
+ */
